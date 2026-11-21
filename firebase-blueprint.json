@@ -1,0 +1,309 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated user profile and wallet preferences isolated per UID.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID matching the document ID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "firstName": {
+          "type": "string",
+          "description": "User first name.",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "lastName": {
+          "type": "string",
+          "description": "User last name.",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Verified email address from Firebase Auth.",
+          "minLength": 3,
+          "maxLength": 120
+        },
+        "phone": {
+          "type": "string",
+          "description": "Optional normalized Nigerian phone number (+234XXXXXXXXXX) or empty string.",
+          "minLength": 0,
+          "maxLength": 20,
+          "pattern": "^(|\\+234[0-9]{10})$"
+        },
+        "hideBalanceByDefault": {
+          "type": "boolean",
+          "description": "Whether the dashboard masks the Naira balance on load."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the profile was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the profile was last updated."
+        }
+      },
+      "required": [
+        "uid",
+        "firstName",
+        "lastName",
+        "email",
+        "phone",
+        "hideBalanceByDefault",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "WalletAccount": {
+      "title": "WalletAccount",
+      "description": "Naira wallet account storing integer-kobo balance and 10-digit account number.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Wallet document ID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "accountNumber": {
+          "type": "string",
+          "description": "10-digit NUBAN-style wallet account number.",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{10}$"
+        },
+        "accountName": {
+          "type": "string",
+          "description": "Full account holder display name.",
+          "minLength": 2,
+          "maxLength": 105
+        },
+        "bankName": {
+          "type": "string",
+          "description": "Issuing wallet institution name.",
+          "minLength": 2,
+          "maxLength": 60
+        },
+        "currency": {
+          "type": "string",
+          "description": "ISO currency code.",
+          "enum": ["NGN"]
+        },
+        "balanceKobo": {
+          "type": "integer",
+          "description": "Current wallet balance in integer kobo (>= 0)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the wallet was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the last balance or account update."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "accountNumber",
+        "accountName",
+        "bankName",
+        "currency",
+        "balanceKobo",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "WalletTransaction": {
+      "title": "WalletTransaction",
+      "description": "Immutable ledger entry for every Naira wallet credit or debit.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Transaction document ID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "accountId": {
+          "type": "string",
+          "description": "Parent wallet account ID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "reference": {
+          "type": "string",
+          "description": "Unique transaction reference code.",
+          "minLength": 5,
+          "maxLength": 64,
+          "pattern": "^[A-Z0-9\\-]+$"
+        },
+        "type": {
+          "type": "string",
+          "description": "Direction of funds movement.",
+          "enum": ["debit", "credit"]
+        },
+        "category": {
+          "type": "string",
+          "description": "Ledger entry category.",
+          "enum": ["transfer", "deposit", "funding"]
+        },
+        "amountKobo": {
+          "type": "integer",
+          "description": "Transaction amount in integer kobo (>= 100)."
+        },
+        "currency": {
+          "type": "string",
+          "description": "ISO currency code.",
+          "enum": ["NGN"]
+        },
+        "status": {
+          "type": "string",
+          "description": "Terminal transaction status.",
+          "enum": ["successful", "pending", "failed"]
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable transaction summary.",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "narration": {
+          "type": "string",
+          "description": "Optional user-provided transfer narration.",
+          "minLength": 0,
+          "maxLength": 100
+        },
+        "counterpartyName": {
+          "type": "string",
+          "description": "Name of the sender or recipient.",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "counterpartyBankName": {
+          "type": "string",
+          "description": "Optional bank name of the counterparty.",
+          "minLength": 0,
+          "maxLength": 80
+        },
+        "counterpartyAccountNumber": {
+          "type": "string",
+          "description": "Optional 10-digit account number of the counterparty.",
+          "minLength": 0,
+          "maxLength": 10,
+          "pattern": "^(|[0-9]{10})$"
+        },
+        "balanceAfterKobo": {
+          "type": "integer",
+          "description": "Exact wallet balance in kobo immediately after this transaction."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the transaction was recorded."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "accountId",
+        "reference",
+        "type",
+        "category",
+        "amountKobo",
+        "currency",
+        "status",
+        "description",
+        "counterpartyName",
+        "balanceAfterKobo",
+        "createdAt"
+      ]
+    },
+    "IdempotencyRecord": {
+      "title": "IdempotencyRecord",
+      "description": "Idempotency key mapping preventing duplicate debits or credits.",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Client-generated idempotency key matching the document ID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "transactionId": {
+          "type": "string",
+          "description": "Transaction ID created for this idempotency key.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the idempotency record was stored."
+        }
+      },
+      "required": [
+        "key",
+        "userId",
+        "transactionId",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user profile and display preferences keyed by Firebase Auth UID."
+    },
+    "/users/{userId}/wallets/{walletId}": {
+      "schema": { "$ref": "#/entities/WalletAccount" },
+      "description": "User Naira wallet account storing integer-kobo balance."
+    },
+    "/users/{userId}/transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/WalletTransaction" },
+      "description": "Append-only ledger of Naira wallet credits and debits."
+    },
+    "/users/{userId}/idempotency/{idempotencyKey}": {
+      "schema": { "$ref": "#/entities/IdempotencyRecord" },
+      "description": "Idempotency guard records linked to wallet transactions."
+    }
+  }
+}

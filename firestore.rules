@@ -1,0 +1,267 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ===============================================================
+    // Primitive Helpers
+    // ===============================================================
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && request.auth.token.email == 'alamutuolasunkanmi@gmail.com';
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // ===============================================================
+    // Validation Blueprints (Synchronized with firebase-blueprint.json)
+    // ===============================================================
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll([
+          'uid', 'firstName', 'lastName', 'email', 'phone',
+          'hideBalanceByDefault', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'firstName', 'lastName', 'email', 'phone',
+          'hideBalanceByDefault', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.uid)
+        && data.uid == userId
+        && data.uid == request.auth.uid
+        && data.firstName is string && data.firstName.size() >= 1 && data.firstName.size() <= 50
+        && data.lastName is string && data.lastName.size() >= 1 && data.lastName.size() <= 50
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 120 && data.email == request.auth.token.email
+        && data.phone is string && data.phone.size() <= 20 && data.phone.matches('^(|\\+234[0-9]{10})$')
+        && data.hideBalanceByDefault is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidWalletAccount(data, userId, walletId) {
+      return data.keys().hasAll([
+          'id', 'userId', 'accountNumber', 'accountName', 'bankName',
+          'currency', 'balanceKobo', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'userId', 'accountNumber', 'accountName', 'bankName',
+          'currency', 'balanceKobo', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.id == walletId
+        && isValidId(data.userId)
+        && data.userId == userId
+        && data.userId == request.auth.uid
+        && data.accountNumber is string && data.accountNumber.size() == 10 && data.accountNumber.matches('^[0-9]{10}$')
+        && data.accountName is string && data.accountName.size() >= 2 && data.accountName.size() <= 105
+        && data.bankName is string && data.bankName.size() >= 2 && data.bankName.size() <= 60
+        && data.currency is string && data.currency == 'NGN'
+        && data.balanceKobo is int && data.balanceKobo >= 0 && data.balanceKobo <= 100000000000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidWalletTransaction(data, userId, transactionId) {
+      return data.keys().hasAll([
+          'id', 'userId', 'accountId', 'reference', 'type', 'category',
+          'amountKobo', 'currency', 'status', 'description',
+          'counterpartyName', 'balanceAfterKobo', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'userId', 'accountId', 'reference', 'type', 'category',
+          'amountKobo', 'currency', 'status', 'description', 'narration',
+          'counterpartyName', 'counterpartyBankName', 'counterpartyAccountNumber',
+          'balanceAfterKobo', 'createdAt'
+        ])
+        && isValidId(data.id)
+        && data.id == transactionId
+        && isValidId(data.userId)
+        && data.userId == userId
+        && data.userId == request.auth.uid
+        && isValidId(data.accountId)
+        && data.reference is string && data.reference.size() >= 5 && data.reference.size() <= 64 && data.reference.matches('^[A-Z0-9\\-]+$')
+        && data.type is string && data.type in ['debit', 'credit']
+        && data.category is string && data.category in ['transfer', 'deposit', 'funding']
+        && data.amountKobo is int && data.amountKobo >= 100 && data.amountKobo <= 10000000000
+        && data.currency is string && data.currency == 'NGN'
+        && data.status is string && data.status in ['successful', 'pending', 'failed']
+        && data.description is string && data.description.size() >= 1 && data.description.size() <= 160
+        && (!('narration' in data) || (data.narration is string && data.narration.size() <= 100))
+        && data.counterpartyName is string && data.counterpartyName.size() >= 1 && data.counterpartyName.size() <= 100
+        && (!('counterpartyBankName' in data) || (data.counterpartyBankName is string && data.counterpartyBankName.size() <= 80))
+        && (!('counterpartyAccountNumber' in data) || (data.counterpartyAccountNumber is string && data.counterpartyAccountNumber.size() <= 10 && data.counterpartyAccountNumber.matches('^(|[0-9]{10})$')))
+        && data.balanceAfterKobo is int && data.balanceAfterKobo >= 0 && data.balanceAfterKobo <= 100000000000
+        && data.createdAt is timestamp;
+    }
+
+    function isValidIdempotencyRecord(data, userId, idempotencyKey) {
+      return data.keys().hasAll(['key', 'userId', 'transactionId', 'createdAt'])
+        && data.keys().hasOnly(['key', 'userId', 'transactionId', 'createdAt'])
+        && isValidId(data.key)
+        && data.key == idempotencyKey
+        && isValidId(data.userId)
+        && data.userId == userId
+        && data.userId == request.auth.uid
+        && isValidId(data.transactionId)
+        && data.createdAt is timestamp;
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+    match /users/{userId} {
+      allow get: if (isOwner(userId) && isVerifiedUser() && isValidId(userId)) || isAdmin();
+      allow list: if isAdmin();
+
+      allow create: if isOwner(userId)
+        && isVerifiedUser()
+        && isValidId(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isOwner(userId)
+        && isVerifiedUser()
+        && isValidId(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().email == existing().email
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Action: Update personal profile details
+          incoming().diff(existing()).affectedKeys().hasOnly(['firstName', 'lastName', 'phone', 'updatedAt'])
+          ||
+          // Action: Update wallet display preferences
+          incoming().diff(existing()).affectedKeys().hasOnly(['hideBalanceByDefault', 'updatedAt'])
+        );
+
+      allow delete: if false;
+
+      // Subcollection: Wallets
+      match /wallets/{walletId} {
+        allow get: if (
+            isOwner(userId)
+            && isVerifiedUser()
+            && isValidId(userId)
+            && isValidId(walletId)
+            && existing().userId == request.auth.uid
+          ) || isAdmin();
+
+        allow list: if (
+            isOwner(userId)
+            && isVerifiedUser()
+            && existing().userId == request.auth.uid
+          ) || isAdmin();
+
+        allow create: if isOwner(userId)
+          && isVerifiedUser()
+          && isValidId(userId)
+          && isValidId(walletId)
+          && isValidWalletAccount(incoming(), userId, walletId)
+          && incoming().balanceKobo == 50000
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && existsAfter(/databases/$(database)/documents/users/$(userId))
+          && getAfter(/databases/$(database)/documents/users/$(userId)).data.uid == request.auth.uid;
+
+        allow update: if isOwner(userId)
+          && isVerifiedUser()
+          && isValidId(userId)
+          && isValidId(walletId)
+          && isValidWalletAccount(incoming(), userId, walletId)
+          && incoming().id == existing().id
+          && incoming().userId == existing().userId
+          && incoming().accountNumber == existing().accountNumber
+          && incoming().bankName == existing().bankName
+          && incoming().currency == existing().currency
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && (
+            // Action: Atomic debit or credit movement
+            (
+              incoming().diff(existing()).affectedKeys().hasOnly(['balanceKobo', 'updatedAt'])
+              && incoming().balanceKobo != existing().balanceKobo
+            )
+            ||
+            // Action: Sync account holder name with profile
+            incoming().diff(existing()).affectedKeys().hasOnly(['accountName', 'updatedAt'])
+          );
+
+        allow delete: if false;
+      }
+
+      // Subcollection: Append-only Ledger Transactions
+      match /transactions/{transactionId} {
+        allow get: if isOwner(userId)
+          && isVerifiedUser()
+          && isValidId(userId)
+          && isValidId(transactionId)
+          && existing().userId == request.auth.uid;
+
+        allow list: if isOwner(userId)
+          && isVerifiedUser()
+          && existing().userId == request.auth.uid;
+
+        allow create: if isOwner(userId)
+          && isVerifiedUser()
+          && isValidId(userId)
+          && isValidId(transactionId)
+          && isValidWalletTransaction(incoming(), userId, transactionId)
+          && incoming().createdAt == request.time
+          && existsAfter(/databases/$(database)/documents/users/$(userId)/wallets/$(incoming().accountId))
+          && getAfter(/databases/$(database)/documents/users/$(userId)/wallets/$(incoming().accountId)).data.userId == request.auth.uid
+          && getAfter(/databases/$(database)/documents/users/$(userId)/wallets/$(incoming().accountId)).data.balanceKobo == incoming().balanceAfterKobo;
+
+        allow update: if false;
+        allow delete: if false;
+      }
+
+      // Subcollection: Idempotency Keys
+      match /idempotency/{idempotencyKey} {
+        allow get: if isOwner(userId)
+          && isVerifiedUser()
+          && isValidId(userId)
+          && isValidId(idempotencyKey)
+          && existing().userId == request.auth.uid;
+
+        allow list: if false;
+
+        allow create: if isOwner(userId)
+          && isVerifiedUser()
+          && isValidId(userId)
+          && isValidId(idempotencyKey)
+          && isValidIdempotencyRecord(incoming(), userId, idempotencyKey)
+          && incoming().createdAt == request.time
+          && existsAfter(/databases/$(database)/documents/users/$(userId)/transactions/$(incoming().transactionId));
+
+        allow update: if false;
+        allow delete: if false;
+      }
+    }
+  }
+}

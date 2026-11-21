@@ -1,0 +1,8 @@
+{
+  "name": "Remix NewPay",
+  "description": "Simple, trustworthy digital wallet MVP for Nigerian Naira (NGN) transfers and balance tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
